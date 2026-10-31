@@ -1,295 +1,388 @@
-# Guida pratica Git e GitHub (Windows PowerShell)
+# Guida pratica a Git e GitHub su Windows
 
-Questa guida spiega come pubblicare le modifiche, tornare alla versione
-online e consultare le versioni precedenti. Eseguire i comandi nella cartella
-del progetto, da **PowerShell**. I blocchi sono sequenze di comandi: controllare
-l'esito di ciascuno prima di passare al successivo. In Windows PowerShell 5.1
-non usare `&&` come separatore dei comandi.
+Questa guida spiega come installare e configurare **Git** e **GitHub CLI (`gh`)**, creare repository pubblici e privati e gestire versioni, aggiornamenti e ripristini dal terminale **PowerShell** (anche quello integrato in Zed o VS Code).
 
-> **Stato iniziale di questa copia:** al momento della stesura, la cartella
-> non contiene `.git` ne un `.gitignore`. Quindi `git status`, `git push` e
-> `git reset` funzioneranno solo dopo aver inizializzato un repository qui
-> oppure dopo aver clonato un repository esistente. Non usare `git init` in
-> una copia che contiene gia `.git`.
+> **Differenza:** Git salva e versiona il codice sul computer; GitHub ospita i repository online. GitHub CLI (`gh`) serve per creare e gestire repository GitHub direttamente dal terminale.
 
-## 1. Preparazione
+## 1. Installare Git
 
-Installare [Git per Windows](https://git-scm.com/download/win) e,
-per i comandi `gh`, [GitHub CLI](https://cli.github.com/). Creare un
-[account GitHub](https://github.com/signup) se necessario. Aprire una nuova
-finestra PowerShell e verificare:
+Aprire **PowerShell**:
+
+```powershell
+winget install --id Git.Git -e
+```
+
+Chiudere e riaprire PowerShell e verificare:
 
 ```powershell
 git --version
+```
+
+In alternativa: [sito ufficiale Git](https://git-scm.com/downloads/win).
+
+## 2. Configurare Git
+
+Impostare nome e indirizzo email associati ai **commit**:
+
+```powershell
+git config --global user.name "TUO_USERNAME_O_NOME"
+git config --global user.email "TUA_EMAIL"
+git config --global init.defaultBranch main
+```
+
+Il nome e l'email sono **metadati dei commit**, non le credenziali per accedere a GitHub. Per associare i commit al proprio account GitHub è opportuno utilizzare un'email verificata nel proprio account, eventualmente l'indirizzo `noreply` fornito da GitHub.
+
+Verificare la configurazione:
+
+```powershell
+git config --global --list
+git config --list --show-origin
+git config user.name
+git config user.email
+```
+
+Su Git per Windows è generalmente già disponibile **Git Credential Manager** per l'autenticazione HTTPS. Verificare con:
+
+```powershell
+git config --show-origin --get-all credential.helper
+```
+
+Se appare `manager`, il gestore delle credenziali è configurato. Per autenticarsi potrebbe essere richiesto il browser alla prima operazione Git verso un repository remoto. **Non inserire la password GitHub con `git config`.**
+
+## 3. Installare GitHub CLI (`gh`)
+
+GitHub CLI permette di creare repository pubblici/privati direttamente da PowerShell.
+
+```powershell
+winget install --id GitHub.cli -e
+```
+
+Riaprire PowerShell:
+
+```powershell
 gh --version
+gh auth login --web --git-protocol https
 ```
 
-Configurare l'identita dei commit (sostituire i valori con i propri):
+Seguire le istruzioni e autorizzare l'accesso da browser. Se viene chiesto se autenticare Git con le credenziali GitHub, scegliere **Yes**. Verificare:
 
 ```powershell
-git config --global user.name "Nome Cognome"
-git config --global user.email "email-associata-a-github@example.com"
-git config --global --get user.name
-git config --global --get user.email
-```
-
-L'email e il nome identificano l'autore dei commit; **non** effettuano
-l'accesso a GitHub. Per l'autenticazione via browser:
-
-```powershell
-gh auth login
 gh auth status
 ```
 
-Nel menu di `gh auth login` scegliere GitHub.com e il protocollo HTTPS;
-seguire la procedura proposta nel browser. Una password GitHub non va
-inserita come password per `git push` su HTTPS. Per i repository privati
-serve l'autorizzazione dell'account che esegue il push.
+> `gh` e Git sono programmi distinti. L'accesso con `gh auth login` non sostituisce la configurazione dell'identità per i commit (`user.name` e `user.email`).
 
-Portarsi nella cartella del progetto (adattare il percorso sul proprio PC):
+## 4. Preparare un progetto: `.gitignore`
+
+**Prima del primo `git add .`**, creare un file `.gitignore` nella cartella del progetto per non pubblicare ambienti virtuali, cache e credenziali.
 
 ```powershell
-Set-Location "C:\Users\elio.errico\Desktop\Python\2026_09_05_Refrigerant_circuit_energy_balance_docker"
+cd "C:\Progetti\MioProgetto"
 ```
 
-## 2. Proteggere i file locali prima di pubblicare
+```powershell
+notepad .gitignore
+```
 
-Prima di `git add .`, creare **nella radice del progetto** un `.gitignore`
-almeno con queste righe, e adattarlo agli altri file locali sensibili:
+Esempio per Python e Node.js:
 
 ```gitignore
+# Ambienti virtuali Python
 venv/
 .venv/
 env/
 ENV/
-.env
-.env.*
-!.env.example
-.secrets/
-backups/
+
+# Cache Python
 __pycache__/
 *.py[cod]
 .pytest_cache/
+
+# Dipendenze Node
+node_modules/
+
+# Segreti locali
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Temporanei
+*.log
+tmp/
 ```
 
-`.gitignore` non esiste ancora in questa copia: non presumere che i venv
-o `.env` siano gia protetti. `!.env.example` consente di pubblicare un
-esempio **solo se privo di segreti**. Non aggiungere credenziali, backup,
-database, dati personali o artefatti generati. In questo progetto verificare
-**prima di pubblicare** anche la licenza e i diritti di redistribuzione di
-`REFPROP/`, `REFPROP.zip`, `SierraStudio_dll_1_1_3_0/` e relativo ZIP.
-Se non sono redistribuibili, escluderli e documentare come installarli
-separatamente: senza questi asset il clone non sara operativo da solo.
+> `.gitignore` **non rimuove** i file che Git sta già tracciando. Non pubblicare password, token o chiavi API, nemmeno nei repository privati. Prima di ogni commit controllare `git status`.
 
-Controllare cosa Git considera tracciato, ignorato o pronto per il commit:
+Per le dipendenze Python è preferibile versionare un `requirements.txt` o `pyproject.toml`, anziché il contenuto del `venv`.
+
+## 5. Creare un nuovo repository PUBBLICO su GitHub
+
+**Scenario:** il codice è già in una cartella sul PC, ma il repository non esiste ancora su GitHub.
 
 ```powershell
-git status --short
-git status --short --ignored
-git ls-files .env venv .venv env ENV .secrets backups
-git diff --cached --stat
-```
+cd "C:\Progetti\MioProgetto"
 
-`git ls-files` deve essere vuoto per i file locali sensibili. Se un file
-e **gia tracciato**, aggiungerlo a `.gitignore` non lo protegge: occorre
-valutare la rimozione dall'indice con `git rm --cached` (o `-r --cached`
-per una directory) e cambiare le eventuali credenziali gia pubblicate.
-Il file locale resta sul disco dopo `--cached`, ma i commit passati possono
-ancora contenerlo. Non eseguire `git add .` finche la selezione non e chiara.
+# Eseguire solo se la cartella non è già un repository Git
+git init
 
-## 3. Creare o collegare un repository
-
-### Progetto locale nuovo, senza `.git`
-
-Preparare `.gitignore` come sopra, poi:
-
-```powershell
-git init -b main
+git branch -M main
 git add .
 git status
-git diff --cached --stat
-git commit -m "Prima versione del progetto"
+git commit -m "Initial commit"
+
+# Crea il repository pubblico e pubblica il branch
+gh repo create MioProgetto --public --source=. --remote=origin --push
 ```
 
-Esaminare l'elenco dei file in `git status` **prima** del commit. Per una
-prima pubblicazione con GitHub CLI scegliere **una sola** visibilita.
-Sostituire `NOME_REPOSITORY` con un nome libero nel proprio account:
+Il nuovo repository sarà visibile a chiunque. Prima di pubblicarlo controllare il contenuto e l'intera cronologia che si intende condividere.
+
+## 6. Creare un nuovo repository PRIVATO su GitHub
+
+Stessa procedura, con `--private` invece di `--public`:
 
 ```powershell
-gh repo create NOME_REPOSITORY --private --source . --remote origin --push
-```
-
-Oppure, per un repository visibile a tutti:
-
-```powershell
-gh repo create NOME_REPOSITORY --public --source . --remote origin --push
-```
-
-Per questo progetto non scegliere `--public` senza aver verificato asset
-licenziati, credenziali e dati. Prima di creare il remoto controllare
-`git remote -v`: se `origin` esiste gia, non ricrearlo.
-
-### Repository GitHub gia esistente
-
-Per lavorare da una **nuova cartella**, usare l'URL HTTPS mostrato su GitHub:
-
-```powershell
-git clone https://github.com/UTENTE/NOME_REPOSITORY.git
-Set-Location .\NOME_REPOSITORY
+cd "C:\Progetti\MioProgetto"
+git init
+git branch -M main
+git add .
 git status
+git commit -m "Initial commit"
+gh repo create MioProgetto --private --source=. --remote=origin --push
 ```
 
-Il clone contiene i file versionati, **non** `.env`, `venv`, backup o altri
-file ignorati. Ricreare gli ambienti e la configurazione locale seguendo
-il [README del progetto](../README.md), senza sovrascrivere la copia
-originale. Se la cartella di lavoro esiste gia ma non ha `.git`, non clonare
-sopra di essa e non inizializzarla per poi forzare il push: tenere le due
-copie separate e confrontarle prima di trasferire modifiche.
+> **Scegliere UNA sola** delle procedure dei punti 5 e 6 per la stessa nuova cartella. Se il repository esiste già su GitHub, non usare `gh repo create` per ricrearlo.
 
-## A. Ho modificato il PC: commit e caricamento online
 
-Da una cartella Git gia collegata a GitHub, controllare il branch e i file:
+## 7. Clonare sul PC un repository già presente su GitHub
 
 ```powershell
-git status
-git branch --show-current
-git remote -v
-git diff --stat
+cd "C:\Progetti"
+git clone https://github.com/TUO_USERNAME/MioProgetto.git
+cd MioProgetto
 ```
 
-Selezionare i file desiderati con `git add percorso\file` (ripetibile).
-Usare `git add .` solo dopo aver verificato `.gitignore` e tutti i file
-nuovi. Poi:
+Per repository privati, l'account autenticato deve avere i permessi di accesso. Il comando di clone è lo stesso.
+
+## 8. Pubblicare le modifiche di un repository esistente
+
+Nella cartella del progetto:
 
 ```powershell
-git add percorso\file
-git diff --cached --stat
-git diff --cached
-git commit -m "Descrizione chiara della modifica"
-git pull --rebase origin main
-git push origin main
-git status
+git status                 # Controlla cosa è cambiato
+git diff                   # Mostra differenze non ancora messe in stage
+git add .                  # Prepara le modifiche
+git diff --cached          # Verifica cosa entrerà nel commit
+git commit -m "Correzione bug"
+git pull --rebase          # Integra eventuali nuovi commit remoti
+git push                   # Pubblica i commit
 ```
 
-Sostituire `main` con il branch effettivo mostrato da
-`git branch --show-current`. `git pull --rebase` puo fermarsi in caso di
-conflitto: risolvere i file, eseguire `git add` sui file risolti e poi
-`git rebase --continue`; per annullare il rebase, `git rebase --abort`.
-Non forzare il push per risolvere un rifiuto. Se `git status` dice che non
-c'e nulla da salvare, non occorre un commit. Per vedere i commit locali
-ancora assenti online: `git log --oneline origin/main..HEAD`.
+Se `git pull --rebase` segnala conflitti, risolverli prima di eseguire `git push`. Nel caso di repository appena creato senza upstream configurato, eseguire `git push -u origin main` la prima volta.
 
-Se `git add` segnala che LF verra convertito in CRLF, e un avviso sulle
-terminazioni di riga Windows, non un errore. Controllare il diff e proseguire
-se il contenuto e quello voluto; non cambiare la configurazione globale di
-Git solo per nascondere l'avviso.
+**Da ricordare:** `add` prepara, `commit` salva nella cronologia **locale**, `push` pubblica su GitHub.
 
-## B. Scartare le modifiche locali e tornare alla versione online
+## 9. Riallineare il repository locale a GitHub
 
-**Attenzione:** questa operazione elimina modifiche a file tracciati,
-file nuovi non ignorati e commit locali non pubblicati dal branch corrente.
-Non altera i file gia pubblicati su GitHub. Conserva `venv` e `.env`
-**solo se non sono tracciati e sono ignorati o esclusi dai comandi `clean`**.
-Non cancella i volumi Docker: per dati di PostgreSQL e backup consultare
-separatamente il manuale della piattaforma.
-
-Verificare **prima** il branch (`main` nell'esempio), l'URL di `origin`,
-i file tracciati sensibili e i commit che verrebbero abbandonati:
+Per sostituire lo stato del branch locale corrente con quello di `main` su GitHub, scaricando prima i riferimenti aggiornati:
 
 ```powershell
-git status
-git branch --show-current
-git remote -v
-git ls-files .env venv .venv env ENV .secrets backups
+git fetch origin && git reset --hard origin/main && git clean -fd
+```
+
+**ATTENZIONE: comando distruttivo.** Prima fare un backup e verificare lo stato con `git status`. Il comando:
+
+- `git fetch origin` aggiorna i riferimenti locali ai branch remoti, senza modificare i file di lavoro.
+- `git reset --hard origin/main` sposta il branch **attualmente selezionato** al commit di `origin/main` e scarta le modifiche locali ai file tracciati e gli eventuali commit locali non presenti su GitHub. Non esegue `git switch main`.
+- `git clean -fd` elimina i file e le cartelle non tracciati da Git. Non elimina i file ignorati; per vedere prima cosa verrebbe rimosso, eseguire `git clean -nd`.
+
+La sequenza presuppone che esistano il remote `origin` e il branch remoto `main`. In PowerShell 7 o successivo, `&&` esegue ciascun comando solo se quello precedente è riuscito. In Windows PowerShell 5.1, eseguire le tre righe separatamente e proseguire solo se ciascuna termina senza errori.
+
+Questo non è un normale aggiornamento: per scaricare e integrare le novità senza cancellare il lavoro locale, usare `git pull` come descritto nel capitolo seguente.
+
+## 10. Scaricare gli aggiornamenti da GitHub
+
+Se la cartella non contiene modifiche locali da conservare:
+
+```powershell
+git pull
+```
+
+Per vedere le novità **senza integrarle subito**:
+
+```powershell
 git fetch origin
-git ls-tree -r --name-only origin/main -- .env venv .venv env ENV .secrets backups
-git log --oneline origin/main..HEAD
-git diff --stat origin/main
-git clean -nd -e venv/ -e .venv/ -e env/ -e ENV/ -e .env -e .env.* -e .secrets/ -e backups/
+git log HEAD..origin/main --oneline
 ```
 
-`git clean -nd` e **solo una simulazione**: leggere ogni riga `Would remove`.
-Se si vuole conservare un altro file/cartella locale non tracciato,
-aggiungere una esclusione `-e nome/` sia alla simulazione sia al comando
-reale, oppure farne una copia fuori dal repository. Se `git ls-files`
-o `git ls-tree` mostra `.env` o file del venv, **fermarsi**: reset e clean
-non li proteggeranno. Controllare anche altre varianti locali, per esempio
-`.env.production`, nel repository e sul remoto. Eseguire il reset solo quando
-`fetch` e i controlli
-sono riusciti e si accetta di perdere il lavoro locale:
+Per mettere temporaneamente da parte anche i nuovi file non tracciati:
 
 ```powershell
+git stash push -u -m "Lavoro temporaneo"
+git pull
+git stash pop
+```
+
+L'applicazione dello stash può generare conflitti.
+
+## 11. Ripristinare il codice dopo modifiche sbagliate
+
+### A. Eliminare modifiche locali NON ancora registrate in un commit
+
+Per ripristinare i file tracciati all'ultimo commit:
+
+```powershell
+git restore .
+```
+
+Se hai già usato `git add .` e vuoi annullare anche le modifiche in stage:
+
+```powershell
+git restore --source=HEAD --staged --worktree .
+```
+
+I file nuovi non tracciati **non vengono eliminati**.
+
+### B. Tornare esattamente alla versione su GitHub (`main`)
+
+**ATTENZIONE: operazione distruttiva.** Perde le modifiche locali ai file tracciati e sposta il branch, abbandonando gli eventuali commit locali non presenti sul remoto.
+
+Prima fare un backup della cartella, poi, se stai lavorando su `main`:
+
+```powershell
+git fetch origin
+git switch main
 git reset --hard origin/main
-git clean -fd -e venv/ -e .venv/ -e env/ -e ENV/ -e .env -e .env.* -e .secrets/ -e backups/
+```
+
+Questa procedura **non elimina** file locali non tracciati. Se desideri eliminarli, verifica prima l'anteprima:
+
+```powershell
+git clean -nd    # Mostra cosa verrebbe eliminato
+git clean -fd    # Elimina i file non tracciati: irreversibile
+```
+
+Non usare `git clean -fdx` senza conoscere le conseguenze: elimina anche file ignorati, per esempio `.env` e ambienti virtuali.
+
+### C. Scaricare una copia nuova senza toccare la cartella danneggiata
+
+```powershell
+cd "C:\Progetti"
+git clone https://github.com/TUO_USERNAME/MioProgetto.git MioProgetto_PULITO
+```
+
+Questa è spesso l'opzione più sicura.
+
+### D. Annullare un commit già pubblicato senza riscrivere la cronologia
+
+```powershell
+git revert HEAD
+git push
+```
+
+## 12. Eliminare i `venv` già tracciati senza cancellarli dal PC
+
+Aggiungere prima `venv/`, `.venv/` e gli altri percorsi corretti nel `.gitignore`. Poi, **se la cartella si chiama proprio `venv` o `.venv`**:
+
+```powershell
+git rm -r --cached --ignore-unmatch -- venv .venv
+git add .gitignore
 git status
+git commit -m "Stop tracking virtual environments"
+git push
 ```
 
-Usare il branch remoto corrispondente al proprio branch, non dare per
-scontato `main`. `git reset --hard` recupera i file tracciati eliminati e
-annulla anche le modifiche gia preparate con `git add`; `git clean -fd`
-elimina file e directory non tracciati **non ignorati**. `-e` aggiunge
-esclusioni per i nomi elencati; **non usare `git clean -fdx`**, che include
-anche i file ignorati. Un file ignorato ma gia tracciato non e protetto.
-Se occorre conservare anche i commit locali, non usare questa procedura.
+Se gli ambienti hanno nomi diversi, ripetere `git rm -r --cached --ignore-unmatch -- NOME_CARTELLA` per ciascuna cartella già tracciata.
 
-## C. Vedere e recuperare versioni precedenti
+`--cached` rimuove i file dall'indice Git, **non dal disco**. I file restano però nei commit precedenti: ripulire la cronologia richiede una procedura separata e coordinamento con eventuali collaboratori.
 
-Visualizzare la cronologia (premere `q` per uscire dal visualizzatore):
+## 13. Branch: lavorare su nuove funzionalità
 
 ```powershell
-git fetch origin
-git log --oneline --decorate --all -20
-git show --stat CODICE_COMMIT
-git --no-pager diff CODICE_COMMIT..HEAD --stat
+git switch -c feature/nuova-funzione  # Crea e apre un branch
+# ... modifica il codice ...
+git add .
+git commit -m "Implementa nuova funzione"
+git push -u origin feature/nuova-funzione
 ```
 
-Per esplorare una versione storica **senza toccare la cartella attuale**,
-creare una cartella separata con un worktree (scegliere un percorso libero):
+Per integrare localmente il branch in `main`:
 
 ```powershell
-git worktree add --detach "..\versione-storica" CODICE_COMMIT
+git switch main
+git pull
+git merge feature/nuova-funzione
+git push
 ```
 
-La cartella storica contiene solo i file versionati; per rimuoverla quando
-non serve piu, dalla cartella del progetto usare
-`git worktree remove "..\versione-storica"` dopo aver verificato che non
-contenga modifiche da conservare. Non copiare automaticamente `.env` o
-credenziali nel worktree.
+In alternativa si può aprire una **Pull Request** su GitHub, particolarmente utile quando collaborano più persone.
 
-Per ottenere una copia indipendente della cronologia completa, clonare in
-una cartella nuova e passare al commit desiderato:
+## 14. Rinominare il repository su GitHub
+
+Su GitHub aprire il repository → **Settings** → **General** → **Repository name** → **Rename**.
+
+Aggiornare il collegamento locale:
 
 ```powershell
-git clone https://github.com/UTENTE/NOME_REPOSITORY.git "..\progetto-storico"
-Set-Location "..\progetto-storico"
-git switch --detach CODICE_COMMIT
+git remote set-url origin https://github.com/TUO_USERNAME/NUOVO_NOME.git
+git remote -v
 ```
 
-`detached HEAD` e normale per la sola consultazione. Per **sviluppare**
-partendo da quel commit, nella copia storica usare
-`git switch -c nome-nuovo-branch`. Per ripristinare un singolo file nella
-cartella corrente (sovrascrive eventuali modifiche a quel file), controllare
-prima con `git status`, quindi:
+La cartella sul PC può mantenere il vecchio nome; rinominarla è facoltativo.
 
-```powershell
-git restore --source=CODICE_COMMIT -- percorso\file
-git diff -- percorso\file
-```
+## 15. Tabella rapida dei comandi
 
-Per ritrovare un commit locale perso dopo un reset, consultare
-`git reflog` **prima** che Git elimini gli oggetti non piu referenziati;
-non e un sostituto affidabile di un backup.
+| Operazione | Comando |
+|---|---|
+| Versione installata | `git --version` |
+| Configurazione | `git config --global --list` |
+| Stato del progetto | `git status` |
+| Differenze non preparate | `git diff` |
+| File preparati per il commit | `git diff --cached` |
+| Aggiungere modifiche | `git add .` |
+| Creare un commit | `git commit -m "Messaggio"` |
+| Pubblicare commit | `git push` |
+| Scaricare e integrare commit | `git pull` |
+| Scaricare novità senza integrarle | `git fetch origin` |
+| Clonare progetto | `git clone URL` |
+| Ultimi commit | `git log --oneline -10` |
+| Branch attuale | `git branch --show-current` |
+| Elenco branch | `git branch -a` |
+| Nuovo branch | `git switch -c nome-branch` |
+| Passare a un branch | `git switch nome-branch` |
+| Mostrare i remoti | `git remote -v` |
+| Controllare l'accesso `gh` | `gh auth status` |
+| Creare repository pubblico | `gh repo create NOME --public --source=. --remote=origin --push` |
+| Creare repository privato | `gh repo create NOME --private --source=. --remote=origin --push` |
+| Cronologia movimenti di HEAD | `git reflog` |
+| Mettere da parte modifiche | `git stash push -u` |
+| Riapplicare lo stash | `git stash pop` |
 
-## Promemoria
+## 16. Problemi frequenti
 
-| Obiettivo | Comando di partenza |
-| --- | --- |
-| Controllare lo stato | `git status` |
-| Pubblicare una modifica | `git add percorso\file`, `git commit -m "Messaggio"`, `git push origin main` |
-| Anteprima dei file da eliminare | `git clean -nd` (aggiungere le esclusioni della sezione B) |
-| Tornare alla versione online | Controlli e comandi della sezione B, **distruttivi** |
-| Vedere versioni vecchie | `git log --oneline --all -20` |
-| Uscire dalla schermata `(END)` | Premere `q` |
+- **`fatal: not a git repository`**: aprire il terminale nella cartella corretta oppure inizializzare Git se è un progetto nuovo.
+- **`nothing to commit`**: non ci sono nuove modifiche pronte per il commit.
+- **`remote origin already exists`**: il remote è già presente; controllarlo con `git remote -v` e, se necessario, modificarlo con `git remote set-url origin URL`.
+- **`repository not found`**: controllare URL, esistenza del repository e autorizzazioni dell'account.
+- **`non-fast-forward`** durante il push: recuperare i commit remoti (`git pull --rebase`) e risolvere eventuali conflitti prima di riprovare.
+- **Problemi di autenticazione**: controllare `gh auth status` e la configurazione di Git Credential Manager.
+- **Il `venv` è finito su GitHub**: aggiungere la cartella a `.gitignore`, rimuoverla dall'indice con `git rm --cached` e fare un nuovo commit.
 
-I comandi qui documentati **non sono stati eseguiti sul progetto**:
-la guida non crea repository, remoti o commit per conto dell'utente.
+## 17. Buone pratiche
+
+1. Controllare sempre `git status` e, quando necessario, `git diff --cached` prima di un commit.
+2. Fare commit piccoli e con descrizioni precise.
+3. Preparare `.gitignore` **prima** del primo caricamento.
+4. Non versionare ambienti virtuali, cache, token, password e chiavi private.
+5. Creare un branch o un commit di sicurezza prima di far modificare ampie parti di codice a un agente AI.
+6. Non usare `git push --force`, `git reset --hard` o `git clean -fd` senza aver verificato l'impatto sui file.
+7. Non considerare GitHub un backup completo: i file ignorati o non committati non vi sono salvati.
+
+## Documentazione ufficiale
+
+- [Git – Download per Windows](https://git-scm.com/downloads/win)
+- [Libro Pro Git](https://git-scm.com/book/en/v2)
+- [GitHub CLI – Manuale](https://cli.github.com/manual/)
+- [GitHub CLI – `gh repo create`](https://cli.github.com/manual/gh_repo_create)
+- [GitHub – Documentazione Git](https://docs.github.com/en/get-started/using-git)
