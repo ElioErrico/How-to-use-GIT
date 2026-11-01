@@ -191,6 +191,18 @@ Per sostituire lo stato del branch locale corrente con quello di `main` su GitHu
 git fetch origin && git reset --hard origin/main && git clean -fd
 ```
 
+Oppure se hai errore powershell
+
+```powershell
+git fetch origin
+if ($LASTEXITCODE -ne 0) { throw "git fetch non riuscito" }
+
+git reset --hard origin/main
+if ($LASTEXITCODE -ne 0) { throw "git reset non riuscito" }
+
+git clean -fd
+```
+
 **ATTENZIONE: comando distruttivo.** Prima fare un backup e verificare lo stato con `git status`. Il comando:
 
 - `git fetch origin` aggiorna i riferimenti locali ai branch remoti, senza modificare i file di lavoro.
