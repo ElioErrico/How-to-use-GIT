@@ -20,19 +20,41 @@ git --version
 
 In alternativa: [sito ufficiale Git](https://git-scm.com/downloads/win).
 
-## 2. Configurare Git
+## 2. Configurare Git (uno o più account GitHub)
 
-Impostare nome e indirizzo email associati ai **commit**:
+Git permette di utilizzare più account GitHub sullo stesso PC. È importante distinguere:
+
+- **Identità Git:** nome ed email associati ai commit.
+- **Account GitHub:** account autenticato per creare repository e pubblicare codice.
+
+### 2.1 Configurazione globale (account principale)
+
+Impostare nome ed email predefiniti per tutti i repository:
 
 ```powershell
-git config --global user.name "TUO_USERNAME_O_NOME"
-git config --global user.email "TUA_EMAIL"
+git config --global user.name "ElioErrico"
+git config --global user.email "EMAIL_PERSONALE"
 git config --global init.defaultBranch main
 ```
 
-Il nome e l'email sono **metadati dei commit**, non le credenziali per accedere a GitHub. Per associare i commit al proprio account GitHub è opportuno utilizzare un'email verificata nel proprio account, eventualmente l'indirizzo `noreply` fornito da GitHub.
+Queste impostazioni vengono utilizzate nei repository che non possiedono una configurazione locale specifica.
 
-Verificare la configurazione:
+### 2.2 Configurazione locale (secondo account)
+
+Quando si lavora su un progetto associato all'altro account GitHub:
+
+```powershell
+cd "C:\Progetti\ProgettoLavoro"
+
+git config --local user.name "USERNAME_LAVORO"
+git config --local user.email "EMAIL_LAVORO"
+```
+
+Le impostazioni locali si applicano **solamente al repository corrente** e prevalgono su quelle globali.
+
+Se il repository è appena stato creato e non è ancora inizializzato, eseguire prima `git init`.
+
+### 2.3 Verificare l'identità Git
 
 ```powershell
 git config --global --list
@@ -41,102 +63,306 @@ git config user.name
 git config user.email
 ```
 
-Su Git per Windows è generalmente già disponibile **Git Credential Manager** per l'autenticazione HTTPS. Verificare con:
+Per sapere da quale configurazione provengono nome ed email:
+
+```powershell
+git config --show-origin --get user.name
+git config --show-origin --get user.email
+```
+
+Il nome e l'email sono metadati dei commit, non credenziali. Usare un'email verificata nel corrispondente account GitHub oppure il relativo indirizzo `noreply`.
+
+### 2.4 Verificare Git Credential Manager
+
+Su Git per Windows è generalmente già disponibile Git Credential Manager:
 
 ```powershell
 git config --show-origin --get-all credential.helper
 ```
 
-Se appare `manager`, il gestore delle credenziali è configurato. Per autenticarsi potrebbe essere richiesto il browser alla prima operazione Git verso un repository remoto. **Non inserire la password GitHub con `git config`.**
+Se appare `manager`, il gestore è configurato.
 
-## 3. Installare GitHub CLI (`gh`)
+**Non utilizzare `git config` per inserire password o token GitHub.**
 
-GitHub CLI permette di creare repository pubblici/privati direttamente da PowerShell.
+---
+
+## 3. Installare GitHub CLI e gestire più account
+
+GitHub CLI (`gh`) permette di autenticare più account GitHub contemporaneamente e di passare rapidamente da uno all'altro.
+
+### 3.1 Installare GitHub CLI
 
 ```powershell
 winget install --id GitHub.cli -e
 ```
 
-Riaprire PowerShell:
+Riaprire PowerShell e verificare:
 
 ```powershell
 gh --version
+```
+
+### 3.2 Creare un secondo account GitHub
+
+Se il secondo account non esiste ancora:
+
+1. Aprire https://github.com/signup
+2. Registrarsi con un indirizzo email differente.
+3. Scegliere un nuovo username e una password.
+4. Verificare l'indirizzo email.
+5. Configurare preferibilmente l'autenticazione a due fattori (2FA).
+
+La creazione dell'account avviene sul sito GitHub, non attraverso `git config`.
+
+Se entrambi gli account esistono già, saltare questo passaggio.
+
+### 3.3 Autenticare il primo account
+
+Aprire PowerShell:
+
+```powershell
 gh auth login --web --git-protocol https
 ```
 
-Seguire le istruzioni e autorizzare l'accesso da browser. Se viene chiesto se autenticare Git con le credenziali GitHub, scegliere **Yes**. Verificare:
+Seguire le istruzioni e autorizzare il primo account dal browser.
+
+Quando richiesto, consentire l'utilizzo delle credenziali anche per Git.
+
+Verificare:
 
 ```powershell
 gh auth status
 ```
 
-> `gh` e Git sono programmi distinti. L'accesso con `gh auth login` non sostituisce la configurazione dell'identità per i commit (`user.name` e `user.email`).
+### 3.4 Aggiungere il secondo account
 
-## 4. Preparare un progetto: `.gitignore`
-
-**Prima del primo `git add .`**, creare un file `.gitignore` nella cartella del progetto per non pubblicare ambienti virtuali, cache e credenziali.
+Eseguire nuovamente:
 
 ```powershell
-cd "C:\Progetti\MioProgetto"
+gh auth login --web --git-protocol https
 ```
+
+Nel browser accedere con il **secondo account GitHub** e completare l'autorizzazione.
+
+Se il browser apre automaticamente il primo account, cambiare account dal selettore del sito GitHub prima di autorizzare la CLI.
+
+Verificare che entrambi siano presenti:
 
 ```powershell
-notepad .gitignore
+gh auth status
 ```
 
-Esempio per Python e Node.js:
+Esempio:
 
-```gitignore
-# Ambienti virtuali Python
-venv/
-.venv/
-env/
-ENV/
-
-# Cache Python
-__pycache__/
-*.py[cod]
-.pytest_cache/
-
-# Dipendenze Node
-node_modules/
-
-# Segreti locali
-.env
-.env.*
-!.env.example
-*.pem
-*.key
-
-# Temporanei
-*.log
-tmp/
+```text
+github.com
+  ✓ Logged in as ElioErrico
+  ✓ Logged in as AccountLavoro
 ```
 
-> `.gitignore` **non rimuove** i file che Git sta già tracciando. Non pubblicare password, token o chiavi API, nemmeno nei repository privati. Prima di ogni commit controllare `git status`.
+I due account rimangono memorizzati. Non è necessario disconnettersi ogni volta.
 
-Per le dipendenze Python è preferibile versionare un `requirements.txt` o `pyproject.toml`, anziché il contenuto del `venv`.
+### 3.5 Passare da un account all'altro (SWITCH)
+
+Per selezionare l'account personale:
+
+```powershell
+gh auth switch --user ElioErrico
+```
+
+Per selezionare l'account lavorativo:
+
+```powershell
+gh auth switch --user AccountLavoro
+```
+
+In alternativa, utilizzare la selezione interattiva:
+
+```powershell
+gh auth switch
+```
+
+Verificare l'account attivo:
+
+```powershell
+gh auth status --active
+```
+
+**Importante:** `gh auth switch` modifica l'account autenticato per GitHub CLI. Non modifica automaticamente `git config user.name` e `git config user.email`.
+
+### 3.6 Configurare l'autenticazione Git tramite GitHub CLI
+
+Per utilizzare le credenziali gestite da GitHub CLI anche con `git push`, `git pull` e `git clone`:
+
+```powershell
+gh auth setup-git
+```
+
+Questo configura Git affinché usi GitHub CLI come gestore delle credenziali per gli host GitHub autenticati.
+
+Con questa configurazione, per i repository HTTPS di GitHub.com le operazioni Git utilizzano normalmente le credenziali dell'account attivo in `gh`.
+
+**Attenzione:** cambiando account con `gh auth switch`, cambia anche l'account utilizzato dall'helper GitHub CLI per l'autenticazione HTTPS. Pertanto, prima di un `push`, assicurarsi di aver selezionato l'account che ha accesso al repository.
+
+Se invece si continua a utilizzare Git Credential Manager come helper effettivo, lo switch di `gh` potrebbe non modificare le credenziali usate da Git. In quel caso verificare la configurazione degli helper e le credenziali memorizzate.
+
+### 3.7 Procedura quotidiana per cambiare account
+
+**Lavorare con l'account personale:**
+
+```powershell
+gh auth switch --user ElioErrico
+gh auth status --active
+
+cd "C:\Progetti\ProgettoPersonale"
+git config user.email
+git remote -v
+```
+
+**Lavorare con l'account lavorativo:**
+
+```powershell
+gh auth switch --user AccountLavoro
+gh auth status --active
+
+cd "C:\Progetti\ProgettoLavoro"
+git config user.email
+git remote -v
+```
+
+Se nome ed email sono già configurati localmente, non occorre reimpostarli ogni volta.
+
+---
 
 ## 5. Creare un nuovo repository PUBBLICO su GitHub
 
 **Scenario:** il codice è già in una cartella sul PC, ma il repository non esiste ancora su GitHub.
 
+### 5.1 Selezionare l'account GitHub
+
+Prima di creare il repository, scegliere l'account proprietario.
+
+**Account personale:**
+
+```powershell
+gh auth switch --user ElioErrico
+```
+
+**Account lavorativo:**
+
+```powershell
+gh auth switch --user AccountLavoro
+```
+
+Verificare:
+
+```powershell
+gh auth status --active
+```
+
+### 5.2 Entrare nella cartella del progetto
+
 ```powershell
 cd "C:\Progetti\MioProgetto"
+```
 
-# Eseguire solo se la cartella non è già un repository Git
+Se la cartella non è ancora un repository Git:
+
+```powershell
 git init
+```
 
+### 5.3 Configurare l'identità corretta per il progetto
+
+Per il progetto personale:
+
+```powershell
+git config --local user.name "ElioErrico"
+git config --local user.email "EMAIL_PERSONALE"
+```
+
+Oppure, per il progetto lavorativo:
+
+```powershell
+git config --local user.name "AccountLavoro"
+git config --local user.email "EMAIL_LAVORO"
+```
+
+Verificare:
+
+```powershell
+git config user.name
+git config user.email
+```
+
+Questa configurazione rimane associata al repository anche dopo aver cambiato account GitHub CLI.
+
+### 5.4 Creare il primo commit
+
+```powershell
 git branch -M main
 git add .
 git status
 git commit -m "Initial commit"
+```
 
-# Crea il repository pubblico e pubblica il branch
+Prima di `git add .`, verificare di aver creato correttamente `.gitignore` e di non includere credenziali.
+
+### 5.5 Creare il repository online e pubblicarlo
+
+Per creare un repository pubblico nell'account attivo:
+
+```powershell
 gh repo create MioProgetto --public --source=. --remote=origin --push
 ```
 
-Il nuovo repository sarà visibile a chiunque. Prima di pubblicarlo controllare il contenuto e l'intera cronologia che si intende condividere.
+In alternativa, per indicare esplicitamente il proprietario:
+
+```powershell
+gh repo create ElioErrico/MioProgetto --public --source=. --remote=origin --push
+```
+
+Oppure:
+
+```powershell
+gh repo create AccountLavoro/MioProgetto --public --source=. --remote=origin --push
+```
+
+L'account attivo deve avere i permessi necessari per creare il repository nel proprietario specificato.
+
+Se il nome del proprietario non coincide con l'account attivo, verificare attentamente i permessi prima di procedere.
+
+### 5.6 Verificare il repository remoto
+
+```powershell
+git remote -v
+gh repo view --web
+```
+
+Controllare che il repository appartenga all'account desiderato.
+
+---
+
+## Promemoria rapido: gestione di due account
+
+| Operazione | Comando |
+|---|---|
+| Aggiungere un account | `gh auth login --web --git-protocol https` |
+| Elencare gli account | `gh auth status` |
+| Cambiare account | `gh auth switch` |
+| Selezionare account personale | `gh auth switch --user ElioErrico` |
+| Selezionare account lavoro | `gh auth switch --user AccountLavoro` |
+| Account attivo | `gh auth status --active` |
+| Configurare Git con GitHub CLI | `gh auth setup-git` |
+| Impostare email del progetto | `git config --local user.email "EMAIL"` |
+| Verificare autore commit | `git config user.name` |
+| Verificare email commit | `git config user.email` |
+| Verificare repository remoto | `git remote -v` |
+| Rimuovere un account dalla CLI | `gh auth logout --user USERNAME` |
+
+**Regola generale:** ogni repository mantiene le proprie impostazioni locali di nome ed email, mentre `gh auth switch` seleziona l'account con cui eseguire le operazioni GitHub.
+
+Questo consente di utilizzare account personale e lavorativo senza modificare continuamente l'identità dei commit.
 
 ## 6. Creare un nuovo repository PRIVATO su GitHub
 
